@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from PIL import Image
+import streamlit.components.v1 as components
 
 # Function to calculate Euclidean distance between two RGB colors
 def get_color_name(rgb, color_df):
@@ -23,7 +24,7 @@ def get_color_name(rgb, color_df):
 # Streamlit app configuration
 st.set_page_config(page_title="Color Detection App", layout="centered")
 st.title("🎨 Color Detection App")
-st.markdown("Upload an image, pick a point with sliders, and discover the color's name and RGB values!")
+st.markdown("Upload an image, click on any point, and discover the color's name and RGB values!")
 
 # Load color dataset
 try:
@@ -54,23 +55,41 @@ if uploaded_file is not None:
             st.error("Unsupported image format. Please upload an RGB or RGBA image.")
             st.stop()
         
-        # Display image
-        st.image(image, caption="Select a point on the image using sliders", use_container_width=True)
+        # Convert image to base64 for HTML display
+        import base64
+        buffered = BytesIO()
+        image.save(buffered, format="PNG")
+        img_base64 = base64.b64encode(buffered.getvalue()).decode()
+        
+        # JavaScript to capture click coordinates
+        click_script = f"""
+        <div id="image-container">
+            <img id="clickable-image" src="data:image/png;base64,{img_base64}" style="max-width: 100%; height: auto;">
+        </div>
+        <script>
+            const img = document.getElementById('clickable-image');
+            img.addEventListener('click', function(e) {{
+                const rect = img.getBoundingClientRect();
+                const scaleX = img.naturalWidth / rect.width;
+                const scaleY = img.naturalHeight / rect.height;
+                const x = Math.round((e.clientX - rect.left) * scaleX);
+                const y = Math.round((e.clientY - rect.top) * scaleY);
+                // Send coordinates to Streamlit
+                Streamlit.setComponentValue({{x: x, y: y}});
+            }});
+        </script>
+        """
+        
+        # Display clickable image using Streamlit component
+        coords = components.html(click_script, height=img_array.shape[0] + 50)
         
         # Store click coordinates in session state
         if 'click_coords' not in st.session_state:
             st.session_state.click_coords = None
         
-        # Sliders for selecting coordinates with dynamic max values
-        st.markdown("**Pick a point on the image:**")
-        col1, col2 = st.columns(2)
-        with col1:
-            x = st.slider("X-coordinate", 0, img_array.shape[1] - 1, 0, key="x_slider")
-        with col2:
-            y = st.slider("Y-coordinate", 0, img_array.shape[0] - 1, 0, key="y_slider")
-        
-        if st.button("Detect Color", key="detect_button"):
-            st.session_state.click_coords = (x, y)
+        # Check if coordinates were received
+        if coords and isinstance(coords, dict) and 'x' in coords and 'y' in coords:
+            st.session_state.click_coords = (coords['x'], coords['y'])
         
         if st.session_state.click_coords:
             x, y = st.session_state.click_coords
@@ -85,14 +104,23 @@ if uploaded_file is not None:
                     st.write(f"**Color Name:** {color_name}")
                     st.write(f"**RGB Values:** {tuple(rgb[:3])}")
                     st.write(f"**Closest RGB Match:** {closest_rgb}")
+                    st.write(f"**Clicked Coordinates:** ({x}, {y})")
                     
                     # Display a colored rectangle
                     color_box = np.zeros((100, 100, 3), dtype=np.uint8)
                     color_box[:] = rgb[:3]  # Use only RGB, ignore alpha if present
                     st.image(color_box, caption="Detected Color", use_container_width=False, width=100)
             else:
-                st.error("Selected coordinates are out of image bounds. Please adjust the sliders.")
+                st.error("Clicked coordinates are out of image bounds. Please click within the image.")
     except Exception as e:
         st.error(f"Error processing image: {str(e)}")
 else:
     st.info("Please upload an image to start detecting colors.")
+
+# Display instructions
+st.markdown("""
+**Instructions:**
+1. Upload a PNG or JPEG image.
+2. Click on any point in the image to detect the color.
+3. View the color name, RGB values, and a color box below.
+""")
