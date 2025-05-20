@@ -7,7 +7,8 @@ import io
 
 # Function to calculate Euclidean distance between two RGB colors
 def get_color_name(rgb, color_df):
-    r, g, b = rgb
+    # Handle both RGB (3 values) and RGBA (4 values) by taking first 3
+    r, g, b = rgb[:3]
     distances = np.sqrt(
         (color_df['R'] - r) ** 2 +
         (color_df['G'] - g) ** 2 +
@@ -45,10 +46,11 @@ if uploaded_file is not None:
         image = Image.open(uploaded_file)
         image = image.resize((800, 600))  # Resize to avoid performance issues
         img_array = np.array(image)
-        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+        # Convert to BGR for OpenCV if needed, but we'll work with img_array directly
+        # img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)  # Removed since we use PIL's RGB
         
         # Display image
-        st.image(image, caption="Select a point on the image using sliders", use_column_width=True)
+        st.image(image, caption="Select a point on the image using sliders", use_container_width=True)
         
         # Store click coordinates in session state
         if 'click_coords' not in st.session_state:
@@ -65,19 +67,19 @@ if uploaded_file is not None:
         if st.session_state.click_coords:
             x, y = st.session_state.click_coords
             if 0 <= y < img_array.shape[0] and 0 <= x < img_array.shape[1]:
-                # Get RGB value at the clicked point
+                # Get RGB value at the clicked point (handles RGBA automatically)
                 rgb = img_array[y, x]
                 color_name, closest_rgb = get_color_name(rgb, color_df)
                 
                 # Display results
                 st.write(f"**Color Name:** {color_name}")
-                st.write(f"**RGB Values:** {tuple(rgb)}")
+                st.write(f"**RGB Values:** {tuple(rgb[:3])}")
                 st.write(f"**Closest RGB Match:** {closest_rgb}")
                 
                 # Display a colored rectangle
                 color_box = np.zeros((100, 100, 3), dtype=np.uint8)
-                color_box[:] = rgb
-                st.image(color_box, caption="Detected Color", width=100)
+                color_box[:] = rgb[:3]  # Use only RGB, ignore alpha if present
+                st.image(color_box, caption="Detected Color", use_container_width=False, width=100)
             else:
                 st.error("Selected coordinates are out of image bounds.")
     except Exception as e:
