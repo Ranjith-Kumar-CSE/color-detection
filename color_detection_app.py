@@ -18,6 +18,11 @@ def get_color_name(rgb, color_df):
                                                 color_df.loc[closest, 'G'],
                                                 color_df.loc[closest, 'B'])
 
+# Streamlit app
+st.set_page_config(page_title="Color Detection App", layout="centered")
+st.title("Color Detection App")
+st.write("Upload an image, select a point, and see the color details!")
+
 # Load color dataset
 try:
     color_df = pd.read_csv('colors.csv')
@@ -27,33 +32,32 @@ try:
 except FileNotFoundError:
     st.error("colors.csv file not found. Please place it in the same directory as the app.")
     st.stop()
-
-# Streamlit app
-st.title("Color Detection App")
-st.write("Upload an image, click on it to detect the color, and see the results!")
+except Exception as e:
+    st.error(f"Error loading colors.csv: {str(e)}")
+    st.stop()
 
 # Image upload
-uploaded_file = st.file_uploader("Choose an image...", type=["png", "jpg", "jpeg"])
+uploaded_file = st.file_uploader("Choose an image (PNG/JPEG)...", type=["png", "jpg", "jpeg"])
 
 if uploaded_file is not None:
     try:
-        # Read and display the image
+        # Read and resize image for performance
         image = Image.open(uploaded_file)
+        image = image.resize((800, 600))  # Resize to avoid performance issues
         img_array = np.array(image)
         img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
         
-        # Display image with clickable functionality
-        st.image(image, caption="Click on the image to detect color", use_column_width=True)
+        # Display image
+        st.image(image, caption="Select a point on the image using sliders", use_column_width=True)
         
         # Store click coordinates in session state
         if 'click_coords' not in st.session_state:
             st.session_state.click_coords = None
         
-        # Simulate click detection (Streamlit doesn't natively support image clicks)
-        # Using sliders as a workaround for user input
-        st.write("Select a point on the image by adjusting the sliders below:")
-        x = st.slider("X-coordinate", 0, img_array.shape[1] - 1, 0)
-        y = st.slider("Y-coordinate", 0, img_array.shape[0] - 1, 0)
+        # Sliders for selecting coordinates
+        st.write("Use sliders to pick a point on the image:")
+        x = st.slider("X-coordinate", 0, img_array.shape[1] - 1, 0, key="x_slider")
+        y = st.slider("Y-coordinate", 0, img_array.shape[0] - 1, 0, key="y_slider")
         
         if st.button("Detect Color"):
             st.session_state.click_coords = (x, y)
@@ -73,7 +77,7 @@ if uploaded_file is not None:
                 # Display a colored rectangle
                 color_box = np.zeros((100, 100, 3), dtype=np.uint8)
                 color_box[:] = rgb
-                st.image(color_box, caption="Detected Color", use_column_width=False)
+                st.image(color_box, caption="Detected Color", width=100)
             else:
                 st.error("Selected coordinates are out of image bounds.")
     except Exception as e:
