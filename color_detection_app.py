@@ -2,6 +2,8 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from PIL import Image
+from io import BytesIO
+import base64
 import streamlit.components.v1 as components
 
 # Function to calculate Euclidean distance between two RGB colors
@@ -56,7 +58,6 @@ if uploaded_file is not None:
             st.stop()
         
         # Convert image to base64 for HTML display
-        import base64
         buffered = BytesIO()
         image.save(buffered, format="PNG")
         img_base64 = base64.b64encode(buffered.getvalue()).decode()
